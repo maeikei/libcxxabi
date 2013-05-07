@@ -7,6 +7,12 @@ project(c++abi)
 # runtime libraries.
 cmake_minimum_required(VERSION 2.8.8)
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -stdlib=libc++ -fstrict-aliasing -Wstrict-aliasing=2")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wsign-conversion -Wshadow -Wconversion -Wunused-variable")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wmissing-field-initializers -Wchar-subscripts -Wmismatched-tags")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wmissing-braces -Wshorten-64-to-32 -Wsign-compare")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wstrict-aliasing=2 -Wstrict-overflow=4 -Wunused-parameter")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wnewline-eof")
 
 set(GENERIC_SOURCES
 
@@ -38,6 +44,8 @@ add_library(c++abi-static STATIC ${GENERIC_SOURCES})
 set_target_properties(c++abi-static PROPERTIES
                       OUTPUT_NAME "c++abi"
                      )
+
+
 install(TARGETS c++abi-static
   ARCHIVE DESTINATION lib
   )

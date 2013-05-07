@@ -38,7 +38,14 @@ add_library(c++abi-static STATIC ${GENERIC_SOURCES})
 set_target_properties(c++abi-static PROPERTIES
                       OUTPUT_NAME "c++abi"
                      )
-
 install(TARGETS c++abi-static
   ARCHIVE DESTINATION lib
+  )
+
+add_library(c++abi-shared SHARED ${GENERIC_SOURCES})
+set_target_properties(c++abi-shared PROPERTIES
+                      OUTPUT_NAME "c++abi"
+                     )
+install(TARGETS c++abi-shared
+  LIBRARY DESTINATION lib
   )

@@ -14,6 +14,10 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wmissing-braces -Wshorten-64-to-32 -Wsi
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wstrict-aliasing=2 -Wstrict-overflow=4 -Wunused-parameter")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wnewline-eof")
 
+
+option(LIBCXX_ENABLE_SHARED "Build libc++abi as a shared library." ON)
+
+
 set(GENERIC_SOURCES
 
 src/abort_message.cpp
@@ -40,20 +44,22 @@ src/stdexcept.cpp
 src/typeinfo.cpp
 
   )
-add_library(c++abi-static STATIC ${GENERIC_SOURCES})
-set_target_properties(c++abi-static PROPERTIES
+if (LIBCXX_ENABLE_SHARED)
+ add_library(c++abi-shared SHARED ${GENERIC_SOURCES})
+ set_target_properties(c++abi-shared PROPERTIES
+                      OUTPUT_NAME "c++abi"
+                     )
+  install(TARGETS c++abi-shared
+    LIBRARY DESTINATION lib
+  )
+else(LIBCXX_ENABLE_SHARED)
+  add_library(c++abi-static STATIC ${GENERIC_SOURCES})
+  set_target_properties(c++abi-static PROPERTIES
                       OUTPUT_NAME "c++abi"
                      )
 
 
-install(TARGETS c++abi-static
-  ARCHIVE DESTINATION lib
+  install(TARGETS c++abi-static
+    ARCHIVE DESTINATION lib
   )
-
-add_library(c++abi-shared SHARED ${GENERIC_SOURCES})
-set_target_properties(c++abi-shared PROPERTIES
-                      OUTPUT_NAME "c++abi"
-                     )
-install(TARGETS c++abi-shared
-  LIBRARY DESTINATION lib
-  )
+endif(LIBCXX_ENABLE_SHARED)

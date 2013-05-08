@@ -393,7 +393,7 @@ get_thrown_object_ptr(_Unwind_Exception* unwind_exception)
     // Even for foreign exceptions, the exception object is *probably* at unwind_exception + 1
     //    Regardless, this library is prohibited from touching a foreign exception
     void* adjustedPtr = unwind_exception + 1;
-    if (unwind_exception->exception_class == kOurDependentExceptionClass)
+    if (reinterpret_cast<uint64_t>(unwind_exception->exception_class) == kOurDependentExceptionClass)
         adjustedPtr = ((__cxa_dependent_exception*)adjustedPtr - 1)->primaryException;
     return adjustedPtr;
 }
@@ -861,12 +861,14 @@ __gxx_personality_v0
             // Found one.  Can we cache the results somewhere to optimize phase 2?
             if (native_exception)
             {
+#ifndef __ARM_EABI_UNWINDER__
                 __cxa_exception* exception_header = (__cxa_exception*)(unwind_exception+1) - 1;
                 exception_header->handlerSwitchValue = static_cast<int>(results.ttypeIndex);
                 exception_header->actionRecord = results.actionRecord;
                 exception_header->languageSpecificData = results.languageSpecificData;
                 exception_header->catchTemp = reinterpret_cast<void*>(results.landingPad);
                 exception_header->adjustedPtr = results.adjustedPtr;
+#endif
             }
             return _URC_HANDLER_FOUND;
         }
@@ -885,6 +887,7 @@ __gxx_personality_v0
             // Did we cache the results of the scan?
             if (native_exception)
             {
+#ifndef __ARM_EABI_UNWINDER__
                 // Yes, reload the results from the cache.
                 __cxa_exception* exception_header = (__cxa_exception*)(unwind_exception+1) - 1;
                 results.ttypeIndex = exception_header->handlerSwitchValue;
@@ -892,6 +895,7 @@ __gxx_personality_v0
                 results.languageSpecificData = exception_header->languageSpecificData;
                 results.landingPad = reinterpret_cast<uintptr_t>(exception_header->catchTemp);
                 results.adjustedPtr = exception_header->adjustedPtr;
+#endif
             }
             else
             {
@@ -934,7 +938,7 @@ __cxa_call_unexpected(void* arg)
         call_terminate(false, unwind_exception);
     __cxa_begin_catch(unwind_exception);
     bool native_old_exception =
-        (unwind_exception->exception_class & get_vendor_and_language) ==
+        (reinterpret_cast<uint64_t>(unwind_exception->exception_class) & get_vendor_and_language) ==
         (kOurExceptionClass                & get_vendor_and_language);
     std::unexpected_handler u_handler;
     std::terminate_handler t_handler;
@@ -948,8 +952,10 @@ __cxa_call_unexpected(void* arg)
         u_handler = old_exception_header->unexpectedHandler;
         // If std::__unexpected(u_handler) rethrows the same exception,
         //   these values get overwritten by the rethrow.  So save them now:
+#ifndef __ARM_EABI_UNWINDER__
         ttypeIndex = old_exception_header->handlerSwitchValue;
         lsda = old_exception_header->languageSpecificData;
+#endif
     }
     else
     {
@@ -993,7 +999,7 @@ __cxa_call_unexpected(void* arg)
                 // This shouldn't be able to happen!
                 std::__terminate(t_handler);
             bool native_new_exception =
-                (new_exception_header->unwindHeader.exception_class & get_vendor_and_language) ==
+                (reinterpret_cast<uint64_t>(new_exception_header->unwindHeader.exception_class) & get_vendor_and_language) ==
                                                 (kOurExceptionClass & get_vendor_and_language);
             void* adjustedPtr;
             if (native_new_exception && (new_exception_header != old_exception_header))
@@ -1001,7 +1007,7 @@ __cxa_call_unexpected(void* arg)
                 const __shim_type_info* excpType =
                     static_cast<const __shim_type_info*>(new_exception_header->exceptionType);
                 adjustedPtr =
-                    new_exception_header->unwindHeader.exception_class == kOurDependentExceptionClass ?
+                    reinterpret_cast<uint64_t>(new_exception_header->unwindHeader.exception_class) == kOurDependentExceptionClass ?
                         ((__cxa_dependent_exception*)new_exception_header)->primaryException :
                         new_exception_header + 1;
                 if (!exception_spec_can_catch(ttypeIndex, classInfo, ttypeEncoding,

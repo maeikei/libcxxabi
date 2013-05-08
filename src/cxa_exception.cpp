@@ -75,21 +75,29 @@ cxa_exception_size_from_exception_thrown_size(size_t size)
 }
 
 static void setExceptionClass(_Unwind_Exception* unwind_exception) {
+#ifdef __ARM_EABI_UNWINDER__
+//    unwind_exception->exception_class = kOurExceptionClass;
+#else
     unwind_exception->exception_class = kOurExceptionClass;
+#endif // __ARM_EABI_UNWINDER__
 }
 
 static void setDependentExceptionClass(_Unwind_Exception* unwind_exception) {
+#ifdef __ARM_EABI_UNWINDER__
+//    unwind_exception->exception_class = kOurDependentExceptionClass;
+#else
     unwind_exception->exception_class = kOurDependentExceptionClass;
+#endif // __ARM_EABI_UNWINDER__
 }
 
 //  Is it one of ours?
 static bool isOurExceptionClass(const _Unwind_Exception* unwind_exception) {
-    return (unwind_exception->exception_class & get_vendor_and_language) == 
+    return (reinterpret_cast<uint64_t>(unwind_exception->exception_class) & get_vendor_and_language) ==
            (kOurExceptionClass                & get_vendor_and_language);
 }
 
 static bool isDependentException(_Unwind_Exception* unwind_exception) {
-    return (unwind_exception->exception_class & 0xFF) == 0x01;
+    return (reinterpret_cast<int>(unwind_exception->exception_class) & 0xFF) == 0x01;
 }
 
 //  This does not need to be atomic
@@ -232,7 +240,7 @@ __cxa_throw(void* thrown_object, std::type_info* tinfo, void (*dest)(void*))
     globals->uncaughtExceptions += 1;   // Not atomically, since globals are thread-local
 
     exception_header->unwindHeader.exception_cleanup = exception_cleanup_func;
-#if __arm__
+#if __arm__  and ! __ARM_EABI_UNWINDER__
     _Unwind_SjLj_RaiseException(&exception_header->unwindHeader);
 #else
     _Unwind_RaiseException(&exception_header->unwindHeader);
@@ -254,10 +262,17 @@ The adjusted pointer is computed by the personality routine during phase 1
 void*
 __cxa_get_exception_ptr(void* unwind_exception) throw()
 {
+#if __ARM_EABI_UNWINDER__
+    return cxa_exception_from_exception_unwind_exception
+    (
+     static_cast<_Unwind_Exception*>(unwind_exception)
+     )->nextPropagatingException;
+#else
     return cxa_exception_from_exception_unwind_exception
            (
                static_cast<_Unwind_Exception*>(unwind_exception)
            )->adjustedPtr;
+#endif //__ARM_EABI_UNWINDER__
 }
     
 /*
@@ -318,7 +333,11 @@ __cxa_begin_catch(void* unwind_arg) throw()
             globals->caughtExceptions = exception_header;
         }
         globals->uncaughtExceptions -= 1;   // Not atomically, since globals are thread-local
+#if __ARM_EABI_UNWINDER__
+        return exception_header->nextPropagatingException;
+#else
         return exception_header->adjustedPtr;
+#endif
     }
     // Else this is a foreign exception
     // If the caughtExceptions stack is not empty, terminate
@@ -465,7 +484,7 @@ __cxa_rethrow()
         //   nothing
         globals->caughtExceptions = 0;
     }
-#if __arm__
+#if __arm__ and ! __ARM_EABI_UNWINDER__
     _Unwind_SjLj_RaiseException(&exception_header->unwindHeader);
 #else
     _Unwind_RaiseException(&exception_header->unwindHeader);
@@ -594,7 +613,7 @@ __cxa_rethrow_primary_exception(void* thrown_object)
         setDependentExceptionClass(&dep_exception_header->unwindHeader);
         __cxa_get_globals()->uncaughtExceptions += 1;
         dep_exception_header->unwindHeader.exception_cleanup = dependent_exception_cleanup;
-#if __arm__
+#if __arm__ and ! __ARM_EABI_UNWINDER__
         _Unwind_SjLj_RaiseException(&dep_exception_header->unwindHeader);
 #else
         _Unwind_RaiseException(&dep_exception_header->unwindHeader);

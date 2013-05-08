@@ -92,7 +92,7 @@ terminate() _NOEXCEPT
             _Unwind_Exception* unwind_exception =
                 reinterpret_cast<_Unwind_Exception*>(exception_header + 1) - 1;
             bool native_exception =
-                (unwind_exception->exception_class & get_vendor_and_language) ==
+                (reinterpret_cast<uint64_t>(unwind_exception->exception_class) & get_vendor_and_language) ==
                                (kOurExceptionClass & get_vendor_and_language);
             if (native_exception)
                 __terminate(exception_header->terminateHandler);
